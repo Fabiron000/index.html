@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grow Up KPI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3a;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --text: #f0f0f8;
+    --text-muted: #7a7a9a;
+    --card-radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 28px 0;
+    position: fixed;
+    top: 0; left: 0; height: 100vh;
+    z-index: 100;
+    transition: transform 0.3s;
+  }
+  .sidebar-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+    padding: 0 24px 28px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .sidebar-logo span { color: var(--text); }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(108,99,255,0.08); }
+  .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+  /* MAIN */
+  .main {
+    margin-left: 220px;
+    flex: 1;
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  /* PAGE */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* HEADER */
+  .page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 28px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.7rem;
+    font-weight: 800;
+  }
+
+  /* CARDS */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+  }
+  .card-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .card-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .card-value.green { color: var(--accent3); }
+  .card-value.purple { color: var(--accent); }
+  .card-value.red { color: var(--accent2); }
+  .card-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
+
+  /* CHARTS ROW */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 22px;
+  }
+  .chart-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .chart-wrap { position: relative; height: 200px; }
+
+  /* TABLE */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .table-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 14px 18px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* BADGE */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .badge-purple { background: rgba(108,99,255,0.2); color: var(--accent); }
+  .badge-green { background: rgba(67,233,123,0.15); color: var(--accent3); }
+  .badge-red { background: rgba(255,101,132,0.15); color: var(--accent2); }
+  .badge-gray { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+
+  /* BUTTONS */
+  .btn {
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5a52e0; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: rgba(255,101,132,0.15); color: var(--accent2); border: 1px solid rgba(255,101,132,0.3); }
+  .btn-danger:hover { background: rgba(255,101,132,0.25); }
+  .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin-bottom: 24px;
+  }
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-input, .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+  .rate-field { display: none; }
+  .rate-field.visible { display: block; }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
+  .progress-bar.green { background: var(--accent3); }
+
+  /* FATTURATO */
+  .fatturato-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .mese-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 18px;
+  }
+  .mese-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .mese-nome { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; }
+  .mese-valori { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .mese-val-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .mese-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.1rem; }
+
+  /* KPI PAGE */
+  .kpi-month-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .month-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    transition: all 0.2s;
+  }
+  .month-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .kpi-input-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi-input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .kpi-input-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .kpi-number-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
+  }
+  .kpi-number-input:focus { outline: none; border-color: var(--accent); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--text-muted);
+  }
+  .empty-state-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state-text { font-size: 0.9rem; }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.9rem; }
+
+  /* HAMBURGER */
+  .hamburger {
+    display: none;
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 200;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 1.2rem;
+  }
+  .sidebar-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 90;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--accent3); color: var(--accent3); }
+  .toast.error { border-color: var(--accent2); color: var(--accent2); }
+
+  /* LOGIN PAGE */
+  .login-page {
+    display: none;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+  }
+  .login-page.active { display: flex; }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+  }
+  .login-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.8rem;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .login-logo span { color: var(--text); }
+  .login-sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 32px; }
+  .login-tabs { display: flex; gap: 0; margin-bottom: 24px; background: var(--surface2); border-radius: 8px; padding: 4px; }
+  .login-tab {
+    flex: 1; text-align: center; padding: 8px;
+    border-radius: 6px; cursor: pointer;
+    font-size: 0.85rem; font-weight: 500;
+    color: var(--text-muted); transition: all 0.2s;
+  }
+  .login-tab.active { background: var(--accent); color: #fff; }
+  .login-error { color: var(--accent2); font-size: 0.82rem; margin-top: 12px; min-height: 18px; }
+  .user-info {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 24px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+  }
+  .user-avatar {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; color: #fff;
+  }
+  .user-email { font-size: 0.78rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 4px; }
+  .btn-logout:hover { color: var(--accent2); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open { display: block; }
+    .main { margin-left: 0; padding: 16px; padding-top: 60px; }
+    .hamburger { display: block; }
+    .charts-row { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-page active" id="login-page">
+  <div class="login-box">
+    <div class="login-logo">Grow Up<span> KPI</span></div>
+    <div class="login-sub">Accedi al tuo account</div>
+    <div class="login-tabs">
+      <div class="login-tab active" onclick="switchTab('login')">Accedi</div>
+      <div class="login-tab" onclick="switchTab('register')">Registrati</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="auth-email" placeholder="mario@esempio.it">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="auth-password" placeholder="••••••••">
+    </div>
+    <div id="auth-name-group" class="form-group" style="display:none">
+      <label class="form-label">Nome</label>
+      <input type="text" class="form-input" id="auth-name" placeholder="Mario Rossi">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="handleAuth()" id="auth-btn">Accedi</button>
+    <div class="login-error" id="auth-error"></div>
+  </div>
+</div>
+
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<div class="app" id="main-app" style="display:none">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">Grow Up<span> KPI</span></div>
+    <div class="nav-item active" onclick="showPage('dashboard', this)">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('fatturato', this)">
+      <span class="nav-icon">💰</span> Fatturato
+    </div>
+    <div class="nav-item" onclick="showPage('contatti', this)">
+      <span class="nav-icon">👤</span> Contatti
+    </div>
+    <div class="nav-item" onclick="showPage('kpi', this)">
+      <span class="nav-icon">🎯</span> KPI Personali
+    </div>
+    <div class="user-info" id="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-email" id="user-email-label">—</div>
+      <button class="btn-logout" onclick="logout()" title="Esci">🚪</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <span style="color:var(--text-muted);font-size:0.85rem" id="dash-date"></span>
+      </div>
+
+      <div class="cards-grid" id="dash-cards">
+        <div class="card"><div class="card-label">Incassato Totale</div><div class="card-value green" id="d-incassato">—</div></div>
+        <div class="card"><div class="card-label">Da Incassare</div><div class="card-value red" id="d-daincassare">—</div></div>
+        <div class="card"><div class="card-label">Totale Contatti</div><div class="card-value purple" id="d-contatti">—</div></div>
+        <div class="card"><div class="card-label">Carrello Medio</div><div class="card-value" id="d-carrello">—</div></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Presenze alle Call</div>
+          <div class="chart-wrap"><canvas id="chartPresenze"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Fatturato Mensile</div>
+          <div class="chart-wrap"><canvas id="chartFatturato"></canvas></div>
+        </div>
+      </div>
+
+      <div class="cards-grid" id="dash-kpi-cards">
+        <div class="card"><div class="card-label">Call Totali</div><div class="card-value purple" id="d-call">—</div></div>
+        <div class="card"><div class="card-label">Pitch Fatti</div><div class="card-value" id="d-pitch">—</div></div>
+        <div class="card"><div class="card-label">Vendite Chiuse</div><div class="card-value green" id="d-vendite">—</div></div>
+        <div class="card"><div class="card-label">Conversion Rate</div><div class="card-value purple" id="d-conversion">—</div></div>
+      </div>
+    </div>
+
+    <!-- FATTURATO -->
+    <div class="page" id="page-fatturato">
+      <div class="page-header">
+        <h1 class="page-title">Fatturato</h1>
+        <button class="btn btn-primary" onclick="openModal('modal-fatturato')">+ Aggiungi mese</button>
+      </div>
+      <div class="fatturato-row" id="fatturato-list">
+        <div class="loading">Caricamento...</div>
+      </div>
+    </div>
+
+    <!-- CONTATTI -->
+    <div class="page" id="page-contatti">
+      <div class="page-header">
+        <h1 class="page-title">Contatti</h1>
+        <button class="btn btn-primary" onclick="openModal('modal-contatto')">+ Nuovo contatto</button>
+      </div>
+      <div class="table-card">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Pacchetto</th>
+                <th>Soluzione</th>
+                <th>Rate</th>
+                <th>Importo</th>
+                <th>Incassato</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="contatti-tbody">
+              <tr><td colspan="7"><div class="loading">Caricamento...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="page" id="page-kpi">
+      <div class="page-header">
+        <h1 class="page-title">KPI Personali</h1>
+        <button class="btn btn-primary" onclick="saveKpi()">💾 Salva</button>
+      </div>
+      <div class="kpi-month-selector" id="kpi-months"></div>
+      <div class="kpi-input-grid">
+        <div class="kpi-input-card"><div class="kpi-input-label">📞 Call Fatte</div><input type="number" class="kpi-number-input" id="k-call" value="0" min="0"></div>
+        <div class="kpi-input-card"><div class="kpi-input-label">✅ Presentati</div><input type="number" class="kpi-number-input" id="k-presentati" value="0" min="0"></div>
+        <div class="kpi-input-card"><div class="kpi-input-label">❌ Non Presentati</div><input type="number" class="kpi-number-input" id="k-nonpresentati" value="0" min="0"></div>
+        <div class="kpi-input-card"><div class="kpi-input-label">🎯 Pitch Fatti</div><input type="number" class="kpi-number-input" id="k-pitch" value="0" min="0"></div>
+        <div class="kpi-input-card"><div class="kpi-input-label">🏆 Vendite Chiuse</div><input type="number" class="kpi-number-input" id="k-vendite" value="0" min="0"></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Presenze / Assenze</div>
+          <div class="chart-wrap"><canvas id="chartKpiTorta"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">KPI del Mese</div>
+          <div style="padding:8px 0" id="kpi-stats-list"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL CONTATTO -->
+<div class="modal-overlay" id="modal-contatto">
+  <div class="modal">
+    <h2 class="modal-title">Nuovo Contatto</h2>
+    <div class="form-group">
+      <label class="form-label">Nome Contatto</label>
+      <input type="text" class="form-input" id="c-nome" placeholder="Mario Rossi">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pacchetto Acquistato</label>
+      <input type="text" class="form-input" id="c-pacchetto" placeholder="es. Premium, Base...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Importo Totale (€)</label>
+        <input type="number" class="form-input" id="c-importo" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Importo Incassato (€)</label>
+        <input type="number" class="form-input" id="c-incassato" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Soluzione di Pagamento</label>
+      <select class="form-select" id="c-soluzione" onchange="toggleRateFields()">
+        <option value="unica">Unica Soluzione</option>
+        <option value="rate">A Rate</option>
+        <option value="finanziamento">Finanziamento</option>
+      </select>
+    </div>
+    <div class="rate-field" id="rate-fields">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Rate Totali</label>
+          <input type="number" class="form-input" id="c-rate-totali" placeholder="12" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rate Pagate</label>
+          <input type="number" class="form-input" id="c-rate-pagate" placeholder="0" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-contatto')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveContatto()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FATTURATO -->
+<div class="modal-overlay" id="modal-fatturato">
+  <div class="modal">
+    <h2 class="modal-title">Aggiungi Mese</h2>
+    <div class="form-group">
+      <label class="form-label">Mese</label>
+      <input type="month" class="form-input" id="f-mese">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Incassato (€)</label>
+        <input type="number" class="form-input" id="f-incassato" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Da Incassare (€)</label>
+        <input type="number" class="form-input" id="f-daincassare" placeholder="0.00">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-fatturato')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveFatturato()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://qkpsvnedwlhspevxxlye.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcHN2bmVkd2xoc3Bldnh4bHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTkzMzUsImV4cCI6MjA5MDczNTMzNX0.LtL9znCyht3e32fwu-iTG_a3lLBZmL7ApI2WVqBssAU';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let authMode = 'login';
+
+// ==================== AUTH ====================
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.login-tab').forEach((t,i) => t.classList.toggle('active', (mode==='login'&&i===0)||(mode==='register'&&i===1)));
+  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Accedi' : 'Registrati';
+  document.getElementById('auth-name-group').style.display = mode === 'register' ? 'block' : 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'Inserisci email e password'; return; }
+
+  try {
+    if (authMode === 'login') {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      onLogin(data.user);
+    } else {
+      if (!name) { errEl.textContent = 'Inserisci il tuo nome'; return; }
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+      if (error) throw error;
+      errEl.style.color = 'var(--accent3)';
+      errEl.textContent = '✅ Registrato! Controlla la tua email per confermare.';
+    }
+  } catch(e) {
+    errEl.style.color = 'var(--accent2)';
+    errEl.textContent = e.message || 'Errore. Riprova.';
+  }
+}
+
+function onLogin(user) {
+  currentUser = user;
+  document.getElementById('login-page').classList.remove('active');
+  document.getElementById('main-app').style.display = '';
+  const email = user.email || '';
+  const name = user.user_metadata?.full_name || email;
+  document.getElementById('user-email-label').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  loadDashboard();
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('login-page').classList.add('active');
+  document.getElementById('main-app').style.display = 'none';
+}
+
+// Check session on load
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user) {
+    onLogin(session.user);
+  }
+});
+
+// Auth state listener
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session?.user && !currentUser) onLogin(session.user);
+  if (event === 'SIGNED_OUT') logout();
+});
+
+// Enter key on login
+document.getElementById('auth-password').addEventListener('keydown', e => { if(e.key==='Enter') handleAuth(); });
+
+// ==================== API ====================
+async function api(table, method='GET', body=null, query='') {
+  const session = await sb.auth.getSession();
+  const token = session.data.session?.access_token || SUPABASE_KEY;
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(await res.text());
+  if (method === 'DELETE') return true;
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+// Add user_id to body
+function withUser(body) {
+  return { ...body, user_id: currentUser?.id };
+}
+
+// ==================== TOAST ====================
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ==================== NAVIGATION ====================
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  if (window.innerWidth < 768) toggleSidebar();
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'fatturato') loadFatturato();
+  if (name === 'contatti') loadContatti();
+  if (name === 'kpi') loadKpi();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleRateFields() {
+  const sol = document.getElementById('c-soluzione').value;
+  document.getElementById('rate-fields').classList.toggle('visible', sol === 'rate');
+}
+
+function formatEuro(n) {
+  if (n === null || n === undefined) return '—';
+  return '€' + Number(n).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+function formatMese(d) {
+  if (!d) return '—';
+  const date = new Date(d + '-01');
+  return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+}
+
+let chartPresenze, chartFatturato, chartKpiTorta;
+function destroyChart(c) { if (c) { c.destroy(); return null; } return null; }
+
+const chartDefaults = {
+  plugins: { legend: { labels: { color: '#7a7a9a', font: { family: 'DM Sans' } } } },
+  scales: { x: { ticks: { color: '#7a7a9a' }, grid: { color: '#2a2a3a' } }, y: { ticks: { color: '#7a7a9a' }, grid: { color: '#2a2a3a' } } }
+};
+
+// ==================== DASHBOARD ====================
+async function loadDashboard() {
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  try {
+    const uid = currentUser.id;
+    const [contatti, fatturato, kpi] = await Promise.all([
+      api('contatti', 'GET', null, `?select=importo_totale,importo_incassato&user_id=eq.${uid}`),
+      api('fatturato', 'GET', null, `?select=mese,incassato,da_incassare&user_id=eq.${uid}&order=mese.asc`),
+      api('kpi_mensili', 'GET', null, `?select=*&user_id=eq.${uid}`)
+    ]);
+
+    const totIncassato = fatturato.reduce((s, r) => s + (r.incassato || 0), 0);
+    const totDaIncassare = fatturato.reduce((s, r) => s + (r.da_incassare || 0), 0);
+    const totImporto = contatti.reduce((s, r) => s + (r.importo_totale || 0), 0);
+    const carrello = contatti.length ? totImporto / contatti.length : 0;
+
+    document.getElementById('d-incassato').textContent = formatEuro(totIncassato);
+    document.getElementById('d-daincassare').textContent = formatEuro(totDaIncassare);
+    document.getElementById('d-contatti').textContent = contatti.length;
+    document.getElementById('d-carrello').textContent = formatEuro(carrello);
+
+    const totCall = kpi.reduce((s, r) => s + (r.call_fatte || 0), 0);
+    const totPitch = kpi.reduce((s, r) => s + (r.pitch_fatti || 0), 0);
+    const totVendite = kpi.reduce((s, r) => s + (r.vendite_chiuse || 0), 0);
+    const conversion = totPitch ? ((totVendite / totPitch) * 100).toFixed(1) + '%' : '—';
+
+    document.getElementById('d-call').textContent = totCall;
+    document.getElementById('d-pitch').textContent = totPitch;
+    document.getElementById('d-vendite').textContent = totVendite;
+    document.getElementById('d-conversion').textContent = conversion;
+
+    const totPresentati = kpi.reduce((s, r) => s + (r.presentati || 0), 0);
+    const totNonPresentati = kpi.reduce((s, r) => s + (r.non_presentati || 0), 0);
+    chartPresenze = destroyChart(chartPresenze);
+    chartPresenze = new Chart(document.getElementById('chartPresenze'), {
+      type: 'doughnut',
+      data: { labels: ['Presentati', 'Non Presentati'], datasets: [{ data: [totPresentati, totNonPresentati], backgroundColor: ['#43e97b', '#ff6584'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7a7a9a' } } } }
+    });
+
+    chartFatturato = destroyChart(chartFatturato);
+    chartFatturato = new Chart(document.getElementById('chartFatturato'), {
+      type: 'bar',
+      data: {
+        labels: fatturato.map(r => formatMese(r.mese).split(' ')[0]),
+        datasets: [
+          { label: 'Incassato', data: fatturato.map(r => r.incassato), backgroundColor: 'rgba(108,99,255,0.7)', borderRadius: 6 },
+          { label: 'Da Incassare', data: fatturato.map(r => r.da_incassare), backgroundColor: 'rgba(255,101,132,0.5)', borderRadius: 6 }
+        ]
+      },
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: false }
+    });
+  } catch(e) { showToast('Errore caricamento dashboard', 'error'); }
+}
+
+// ==================== FATTURATO ====================
+async function loadFatturato() {
+  const el = document.getElementById('fatturato-list');
+  el.innerHTML = '<div class="loading">Caricamento...</div>';
+  try {
+    const data = await api('fatturato', 'GET', null, `?user_id=eq.${currentUser.id}&order=mese.desc`);
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">Nessun mese inserito ancora</div></div>'; return; }
+    el.innerHTML = data.map(r => {
+      const tot = (r.incassato || 0) + (r.da_incassare || 0);
+      const perc = tot ? Math.round((r.incassato / tot) * 100) : 0;
+      return `<div class="mese-card">
+        <div class="mese-card-header">
+          <div class="mese-nome">${formatMese(r.mese)}</div>
+          <button class="btn btn-danger btn-sm" onclick="deleteFatturato('${r.id}')">✕</button>
+        </div>
+        <div class="mese-valori">
+          <div><div class="mese-val-label">Incassato</div><div class="mese-val" style="color:var(--accent3)">${formatEuro(r.incassato)}</div></div>
+          <div><div class="mese-val-label">Da Incassare</div><div class="mese-val" style="color:var(--accent2)">${formatEuro(r.da_incassare)}</div></div>
+        </div>
+        <div style="margin-bottom:6px;font-size:0.75rem;color:var(--text-muted)">${perc}% incassato</div>
+        <div class="progress-bar-wrap"><div class="progress-bar green" style="width:${perc}%"></div></div>
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = '<div class="empty-state">Errore caricamento</div>'; }
+}
+
+async function saveFatturato() {
+  const mese = document.getElementById('f-mese').value;
+  const incassato = parseFloat(document.getElementById('f-incassato').value) || 0;
+  const da_incassare = parseFloat(document.getElementById('f-daincassare').value) || 0;
+  if (!mese) { showToast('Seleziona un mese', 'error'); return; }
+  try {
+    await api('fatturato', 'POST', withUser({ mese: mese + '-01', incassato, da_incassare }));
+    closeModal('modal-fatturato');
+    document.getElementById('f-mese').value = '';
+    document.getElementById('f-incassato').value = '';
+    document.getElementById('f-daincassare').value = '';
+    showToast('Mese salvato!');
+    loadFatturato();
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+
+async function deleteFatturato(id) {
+  if (!confirm('Eliminare questo mese?')) return;
+  await api('fatturato', 'DELETE', null, `?id=eq.${id}`);
+  showToast('Eliminato');
+  loadFatturato();
+}
+
+// ==================== CONTATTI ====================
+async function loadContatti() {
+  const tbody = document.getElementById('contatti-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading">Caricamento...</div></td></tr>';
+  try {
+    const data = await api('contatti', 'GET', null, `?user_id=eq.${currentUser.id}&order=created_at.desc`);
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👤</div><div class="empty-state-text">Nessun contatto ancora</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(r => {
+      const solBadge = { unica: 'badge-green', rate: 'badge-purple', finanziamento: 'badge-gray' }[r.soluzione] || 'badge-gray';
+      const solLabel = { unica: 'Unica', rate: 'Rate', finanziamento: 'Finanziamento' }[r.soluzione] || r.soluzione;
+      const rateText = r.soluzione === 'rate' ? `${r.rate_pagate || 0}/${r.numero_rate_totali || '?'}` : '—';
+      const incPerc = r.importo_totale ? Math.round(((r.importo_incassato || 0) / r.importo_totale) * 100) : 0;
+      return `<tr>
+        <td><strong>${r.nome}</strong></td>
+        <td>${r.pacchetto || '—'}</td>
+        <td><span class="badge ${solBadge}">${solLabel}</span></td>
+        <td>${rateText}</td>
+        <td>${formatEuro(r.importo_totale)}</td>
+        <td>
+          <div style="font-size:0.82rem;margin-bottom:4px">${formatEuro(r.importo_incassato)} <span style="color:var(--text-muted)">(${incPerc}%)</span></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${incPerc}%"></div></div>
+        </td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteContatto('${r.id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="7">Errore caricamento</td></tr>'; }
+}
+
+async function saveContatto() {
+  const nome = document.getElementById('c-nome').value.trim();
+  if (!nome) { showToast('Inserisci il nome', 'error'); return; }
+  const soluzione = document.getElementById('c-soluzione').value;
+  const body = withUser({
+    nome,
+    pacchetto: document.getElementById('c-pacchetto').value,
+    soluzione,
+    importo_totale: parseFloat(document.getElementById('c-importo').value) || 0,
+    importo_incassato: parseFloat(document.getElementById('c-incassato').value) || 0,
+    numero_rate_totali: soluzione === 'rate' ? parseInt(document.getElementById('c-rate-totali').value) || null : null,
+    rate_pagate: soluzione === 'rate' ? parseInt(document.getElementById('c-rate-pagate').value) || 0 : null,
+  });
+  try {
+    await api('contatti', 'POST', body);
+    closeModal('modal-contatto');
+    document.getElementById('c-nome').value = '';
+    document.getElementById('c-pacchetto').value = '';
+    document.getElementById('c-importo').value = '';
+    document.getElementById('c-incassato').value = '';
+    showToast('Contatto salvato!');
+    loadContatti();
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+
+async function deleteContatto(id) {
+  if (!confirm('Eliminare questo contatto?')) return;
+  await api('contatti', 'DELETE', null, `?id=eq.${id}`);
+  showToast('Eliminato');
+  loadContatti();
+}
+
+// ==================== KPI ====================
+let currentKpiMese = null;
+
+function getMesiList() {
+  const mesi = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = d.toISOString().slice(0, 7);
+    mesi.push({ val, label: d.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }) });
+  }
+  return mesi;
+}
+
+async function loadKpi() {
+  const mesi = getMesiList();
+  const now = new Date().toISOString().slice(0, 7);
+  if (!currentKpiMese) currentKpiMese = now;
+
+  const selector = document.getElementById('kpi-months');
+  selector.innerHTML = mesi.map(m => `
+    <div class="month-chip ${m.val === currentKpiMese ? 'active' : ''}" onclick="selectKpiMese('${m.val}')">${m.label}</div>
+  `).join('');
+
+  await loadKpiMese(currentKpiMese);
+}
+
+async function selectKpiMese(mese) {
+  currentKpiMese = mese;
+  document.querySelectorAll('.month-chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  await loadKpiMese(mese);
+}
+
+async function loadKpiMese(mese) {
+  try {
+    const data = await api('kpi_mensili', 'GET', null, `?mese=eq.${mese}-01&user_id=eq.${currentUser.id}`);
+    const r = data[0] || {};
+    document.getElementById('k-call').value = r.call_fatte || 0;
+    document.getElementById('k-presentati').value = r.presentati || 0;
+    document.getElementById('k-nonpresentati').value = r.non_presentati || 0;
+    document.getElementById('k-pitch').value = r.pitch_fatti || 0;
+    document.getElementById('k-vendite').value = r.vendite_chiuse || 0;
+    updateKpiStats();
+  } catch(e) {}
+}
+
+function updateKpiStats() {
+  const pres = parseInt(document.getElementById('k-presentati').value) || 0;
+  const nonPres = parseInt(document.getElementById('k-nonpresentati').value) || 0;
+  const pitch = parseInt(document.getElementById('k-pitch').value) || 0;
+  const vendite = parseInt(document.getElementById('k-vendite').value) || 0;
+  const call = parseInt(document.getElementById('k-call').value) || 0;
+  const totCall = pres + nonPres;
+  const percPres = totCall ? ((pres / totCall) * 100).toFixed(1) : 0;
+  const conversion = pitch ? ((vendite / pitch) * 100).toFixed(1) : 0;
+
+  chartKpiTorta = destroyChart(chartKpiTorta);
+  chartKpiTorta = new Chart(document.getElementById('chartKpiTorta'), {
+    type: 'doughnut',
+    data: { labels: ['Presentati', 'Non Presentati'], datasets: [{ data: [pres, nonPres], backgroundColor: ['#43e97b', '#ff6584'], borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7a7a9a' } } } }
+  });
+
+  document.getElementById('kpi-stats-list').innerHTML = `
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">% Presentati</span>
+      <strong style="color:var(--accent3)">${percPres}%</strong>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Conversion Rate (pitch)</span>
+      <strong style="color:var(--accent)">${conversion}%</strong>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Pitch → Vendita</span>
+      <strong>${vendite} / ${pitch}</strong>
+    </div>
+    <div style="padding:10px 0;display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Call totali</span>
+      <strong>${call}</strong>
+    </div>
+  `;
+}
+
+['k-call','k-presentati','k-nonpresentati','k-pitch','k-vendite'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateKpiStats);
+});
+
+async function saveKpi() {
+  const mese = currentKpiMese;
+  const body = withUser({
+    mese: mese + '-01',
+    call_fatte: parseInt(document.getElementById('k-call').value) || 0,
+    presentati: parseInt(document.getElementById('k-presentati').value) || 0,
+    non_presentati: parseInt(document.getElementById('k-nonpresentati').value) || 0,
+    pitch_fatti: parseInt(document.getElementById('k-pitch').value) || 0,
+    vendite_chiuse: parseInt(document.getElementById('k-vendite').value) || 0,
+  });
+  try {
+    const existing = await api('kpi_mensili', 'GET', null, `?mese=eq.${mese}-01&user_id=eq.${currentUser.id}`);
+    if (existing.length) {
+      await api('kpi_mensili', 'PATCH', body, `?id=eq.${existing[0].id}`);
+    } else {
+      await api('kpi_mensili', 'POST', body);
+    }
+    showToast('KPI salvati!');
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+</script>
+
+const headers = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+async function supabase(table, method='GET', body=null, query='') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  if (method === 'DELETE') return true;
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+// TOAST
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// NAVIGATION
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  if (window.innerWidth < 768) toggleSidebar();
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'fatturato') loadFatturato();
+  if (name === 'contatti') loadContatti();
+  if (name === 'kpi') loadKpi();
+}
+
+// SIDEBAR MOBILE
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// MODAL
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleRateFields() {
+  const sol = document.getElementById('c-soluzione').value;
+  document.getElementById('rate-fields').classList.toggle('visible', sol === 'rate');
+}
+
+// FORMAT
+function formatEuro(n) {
+  if (n === null || n === undefined) return '—';
+  return '€' + Number(n).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+function formatMese(d) {
+  if (!d) return '—';
+  const date = new Date(d + '-01');
+  return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+}
+
+// CHARTS
+let chartPresenze, chartFatturato, chartKpiTorta;
+
+function destroyChart(c) { if (c) { c.destroy(); return null; } return null; }
+
+const chartDefaults = {
+  plugins: { legend: { labels: { color: '#7a7a9a', font: { family: 'DM Sans' } } } },
+  scales: { x: { ticks: { color: '#7a7a9a' }, grid: { color: '#2a2a3a' } }, y: { ticks: { color: '#7a7a9a' }, grid: { color: '#2a2a3a' } } }
+};
+
+// ==================== DASHBOARD ====================
+async function loadDashboard() {
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  try {
+    const [contatti, fatturato, kpi] = await Promise.all([
+      supabase('contatti', 'GET', null, '?select=importo_totale,importo_incassato'),
+      supabase('fatturato', 'GET', null, '?select=mese,incassato,da_incassare&order=mese.asc'),
+      supabase('kpi_mensili', 'GET', null, '?select=*')
+    ]);
+
+    const totIncassato = fatturato.reduce((s, r) => s + (r.incassato || 0), 0);
+    const totDaIncassare = fatturato.reduce((s, r) => s + (r.da_incassare || 0), 0);
+    const totImporto = contatti.reduce((s, r) => s + (r.importo_totale || 0), 0);
+    const carrello = contatti.length ? totImporto / contatti.length : 0;
+
+    document.getElementById('d-incassato').textContent = formatEuro(totIncassato);
+    document.getElementById('d-daincassare').textContent = formatEuro(totDaIncassare);
+    document.getElementById('d-contatti').textContent = contatti.length;
+    document.getElementById('d-carrello').textContent = formatEuro(carrello);
+
+    const totCall = kpi.reduce((s, r) => s + (r.call_fatte || 0), 0);
+    const totPitch = kpi.reduce((s, r) => s + (r.pitch_fatti || 0), 0);
+    const totVendite = kpi.reduce((s, r) => s + (r.vendite_chiuse || 0), 0);
+    const conversion = totPitch ? ((totVendite / totPitch) * 100).toFixed(1) + '%' : '—';
+
+    document.getElementById('d-call').textContent = totCall;
+    document.getElementById('d-pitch').textContent = totPitch;
+    document.getElementById('d-vendite').textContent = totVendite;
+    document.getElementById('d-conversion').textContent = conversion;
+
+    // Chart presenze
+    const totPresentati = kpi.reduce((s, r) => s + (r.presentati || 0), 0);
+    const totNonPresentati = kpi.reduce((s, r) => s + (r.non_presentati || 0), 0);
+    chartPresenze = destroyChart(chartPresenze);
+    chartPresenze = new Chart(document.getElementById('chartPresenze'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Presentati', 'Non Presentati'],
+        datasets: [{ data: [totPresentati, totNonPresentati], backgroundColor: ['#43e97b', '#ff6584'], borderWidth: 0 }]
+      },
+      options: { ...chartDefaults, scales: undefined, plugins: { legend: { labels: { color: '#7a7a9a' } } } }
+    });
+
+    // Chart fatturato
+    chartFatturato = destroyChart(chartFatturato);
+    chartFatturato = new Chart(document.getElementById('chartFatturato'), {
+      type: 'bar',
+      data: {
+        labels: fatturato.map(r => formatMese(r.mese).split(' ')[0]),
+        datasets: [
+          { label: 'Incassato', data: fatturato.map(r => r.incassato), backgroundColor: 'rgba(108,99,255,0.7)', borderRadius: 6 },
+          { label: 'Da Incassare', data: fatturato.map(r => r.da_incassare), backgroundColor: 'rgba(255,101,132,0.5)', borderRadius: 6 }
+        ]
+      },
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: false }
+    });
+
+  } catch(e) { showToast('Errore caricamento dashboard', 'error'); }
+}
+
+// ==================== FATTURATO ====================
+async function loadFatturato() {
+  const el = document.getElementById('fatturato-list');
+  el.innerHTML = '<div class="loading">Caricamento...</div>';
+  try {
+    const data = await supabase('fatturato', 'GET', null, '?order=mese.desc');
+    if (!data.length) { el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">Nessun mese inserito ancora</div></div>'; return; }
+    el.innerHTML = data.map(r => {
+      const tot = (r.incassato || 0) + (r.da_incassare || 0);
+      const perc = tot ? Math.round((r.incassato / tot) * 100) : 0;
+      return `
+        <div class="mese-card">
+          <div class="mese-card-header">
+            <div class="mese-nome">${formatMese(r.mese)}</div>
+            <button class="btn btn-danger btn-sm" onclick="deleteFatturato('${r.id}')">✕</button>
+          </div>
+          <div class="mese-valori">
+            <div><div class="mese-val-label">Incassato</div><div class="mese-val" style="color:var(--accent3)">${formatEuro(r.incassato)}</div></div>
+            <div><div class="mese-val-label">Da Incassare</div><div class="mese-val" style="color:var(--accent2)">${formatEuro(r.da_incassare)}</div></div>
+          </div>
+          <div style="margin-bottom:6px;font-size:0.75rem;color:var(--text-muted)">${perc}% incassato</div>
+          <div class="progress-bar-wrap"><div class="progress-bar green" style="width:${perc}%"></div></div>
+        </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = '<div class="empty-state">Errore caricamento</div>'; }
+}
+
+async function saveFatturato() {
+  const mese = document.getElementById('f-mese').value;
+  const incassato = parseFloat(document.getElementById('f-incassato').value) || 0;
+  const da_incassare = parseFloat(document.getElementById('f-daincassare').value) || 0;
+  if (!mese) { showToast('Seleziona un mese', 'error'); return; }
+  try {
+    await supabase('fatturato', 'POST', { mese: mese + '-01', incassato, da_incassare });
+    closeModal('modal-fatturato');
+    document.getElementById('f-mese').value = '';
+    document.getElementById('f-incassato').value = '';
+    document.getElementById('f-daincassare').value = '';
+    showToast('Mese salvato!');
+    loadFatturato();
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+
+async function deleteFatturato(id) {
+  if (!confirm('Eliminare questo mese?')) return;
+  await supabase('fatturato', 'DELETE', null, `?id=eq.${id}`);
+  showToast('Eliminato');
+  loadFatturato();
+}
+
+// ==================== CONTATTI ====================
+async function loadContatti() {
+  const tbody = document.getElementById('contatti-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading">Caricamento...</div></td></tr>';
+  try {
+    const data = await supabase('contatti', 'GET', null, '?order=created_at.desc');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👤</div><div class="empty-state-text">Nessun contatto ancora</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(r => {
+      const solBadge = { unica: 'badge-green', rate: 'badge-purple', finanziamento: 'badge-gray' }[r.soluzione] || 'badge-gray';
+      const solLabel = { unica: 'Unica', rate: 'Rate', finanziamento: 'Finanziamento' }[r.soluzione] || r.soluzione;
+      const rateText = r.soluzione === 'rate' ? `${r.rate_pagate || 0}/${r.numero_rate_totali || '?'}` : '—';
+      const incPerc = r.importo_totale ? Math.round(((r.importo_incassato || 0) / r.importo_totale) * 100) : 0;
+      return `<tr>
+        <td><strong>${r.nome}</strong></td>
+        <td>${r.pacchetto || '—'}</td>
+        <td><span class="badge ${solBadge}">${solLabel}</span></td>
+        <td>${rateText}</td>
+        <td>${formatEuro(r.importo_totale)}</td>
+        <td>
+          <div style="font-size:0.82rem;margin-bottom:4px">${formatEuro(r.importo_incassato)} <span style="color:var(--text-muted)">(${incPerc}%)</span></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${incPerc}%"></div></div>
+        </td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteContatto('${r.id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="7">Errore caricamento</td></tr>'; }
+}
+
+async function saveContatto() {
+  const nome = document.getElementById('c-nome').value.trim();
+  if (!nome) { showToast('Inserisci il nome', 'error'); return; }
+  const soluzione = document.getElementById('c-soluzione').value;
+  const body = {
+    nome,
+    pacchetto: document.getElementById('c-pacchetto').value,
+    soluzione,
+    importo_totale: parseFloat(document.getElementById('c-importo').value) || 0,
+    importo_incassato: parseFloat(document.getElementById('c-incassato').value) || 0,
+    numero_rate_totali: soluzione === 'rate' ? parseInt(document.getElementById('c-rate-totali').value) || null : null,
+    rate_pagate: soluzione === 'rate' ? parseInt(document.getElementById('c-rate-pagate').value) || 0 : null,
+  };
+  try {
+    await supabase('contatti', 'POST', body);
+    closeModal('modal-contatto');
+    document.getElementById('c-nome').value = '';
+    document.getElementById('c-pacchetto').value = '';
+    document.getElementById('c-importo').value = '';
+    document.getElementById('c-incassato').value = '';
+    showToast('Contatto salvato!');
+    loadContatti();
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+
+async function deleteContatto(id) {
+  if (!confirm('Eliminare questo contatto?')) return;
+  await supabase('contatti', 'DELETE', null, `?id=eq.${id}`);
+  showToast('Eliminato');
+  loadContatti();
+}
+
+// ==================== KPI ====================
+let currentKpiMese = null;
+let kpiChartTorta;
+
+function getMesiList() {
+  const mesi = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = d.toISOString().slice(0, 7);
+    mesi.push({ val, label: d.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }) });
+  }
+  return mesi;
+}
+
+async function loadKpi() {
+  const mesi = getMesiList();
+  const now = new Date().toISOString().slice(0, 7);
+  if (!currentKpiMese) currentKpiMese = now;
+
+  const selector = document.getElementById('kpi-months');
+  selector.innerHTML = mesi.map(m => `
+    <div class="month-chip ${m.val === currentKpiMese ? 'active' : ''}" onclick="selectKpiMese('${m.val}')">${m.label}</div>
+  `).join('');
+
+  await loadKpiMese(currentKpiMese);
+}
+
+async function selectKpiMese(mese) {
+  currentKpiMese = mese;
+  document.querySelectorAll('.month-chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  await loadKpiMese(mese);
+}
+
+async function loadKpiMese(mese) {
+  try {
+    const data = await supabase('kpi_mensili', 'GET', null, `?mese=eq.${mese}-01`);
+    const r = data[0] || {};
+    document.getElementById('k-call').value = r.call_fatte || 0;
+    document.getElementById('k-presentati').value = r.presentati || 0;
+    document.getElementById('k-nonpresentati').value = r.non_presentati || 0;
+    document.getElementById('k-pitch').value = r.pitch_fatti || 0;
+    document.getElementById('k-vendite').value = r.vendite_chiuse || 0;
+    updateKpiStats();
+  } catch(e) {}
+}
+
+function updateKpiStats() {
+  const pres = parseInt(document.getElementById('k-presentati').value) || 0;
+  const nonPres = parseInt(document.getElementById('k-nonpresentati').value) || 0;
+  const pitch = parseInt(document.getElementById('k-pitch').value) || 0;
+  const vendite = parseInt(document.getElementById('k-vendite').value) || 0;
+  const call = parseInt(document.getElementById('k-call').value) || 0;
+  const totCall = pres + nonPres;
+  const percPres = totCall ? ((pres / totCall) * 100).toFixed(1) : 0;
+  const conversion = pitch ? ((vendite / pitch) * 100).toFixed(1) : 0;
+
+  // Torta
+  kpiChartTorta = destroyChart(kpiChartTorta);
+  kpiChartTorta = new Chart(document.getElementById('chartKpiTorta'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Presentati', 'Non Presentati'],
+      datasets: [{ data: [pres, nonPres], backgroundColor: ['#43e97b', '#ff6584'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7a7a9a' } } } }
+  });
+
+  // Stats
+  document.getElementById('kpi-stats-list').innerHTML = `
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">% Presentati</span>
+      <strong style="color:var(--accent3)">${percPres}%</strong>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Conversion Rate (pitch)</span>
+      <strong style="color:var(--accent)">${conversion}%</strong>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Pitch → Vendita</span>
+      <strong>${vendite} / ${pitch}</strong>
+    </div>
+    <div style="padding:10px 0;display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:0.85rem">Call totali</span>
+      <strong>${call}</strong>
+    </div>
+  `;
+}
+
+['k-call','k-presentati','k-nonpresentati','k-pitch','k-vendite'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateKpiStats);
+});
+
+async function saveKpi() {
+  const mese = currentKpiMese;
+  const body = {
+    mese: mese + '-01',
+    call_fatte: parseInt(document.getElementById('k-call').value) || 0,
+    presentati: parseInt(document.getElementById('k-presentati').value) || 0,
+    non_presentati: parseInt(document.getElementById('k-nonpresentati').value) || 0,
+    pitch_fatti: parseInt(document.getElementById('k-pitch').value) || 0,
+    vendite_chiuse: parseInt(document.getElementById('k-vendite').value) || 0,
+  };
+  try {
+    const existing = await supabase('kpi_mensili', 'GET', null, `?mese=eq.${mese}-01`);
+    if (existing.length) {
+      await supabase('kpi_mensili', 'PATCH', body, `?id=eq.${existing[0].id}`);
+    } else {
+      await supabase('kpi_mensili', 'POST', body);
+    }
+    showToast('KPI salvati!');
+  } catch(e) { showToast('Errore salvataggio', 'error'); }
+}
+
+// INIT
+loadDashboard();
+</script>
+</body>
+</html>
